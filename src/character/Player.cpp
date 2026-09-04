@@ -74,6 +74,11 @@ void Player::restore(int level, int exp, int maxHp, int hp, int baseAtk, int bas
     // 装备加成由随后的 equip 重建，这里先清零
     m_attackBonus = 0;
     m_defenseBonus = 0;
+    // 消化溢出经验：读档恢复的高经验可能跨级（升级回满血）
+    while (m_exp >= getExpToNextLevel()) {
+        m_exp -= getExpToNextLevel();
+        levelUp();
+    }
     m_weapon = nullptr;
     m_armor = nullptr;
     if (m_currentHp > m_maxHp) m_currentHp = m_maxHp;

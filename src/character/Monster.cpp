@@ -19,7 +19,7 @@ void Monster::initializeStats(int level) {
         case MonsterType::Bat: m_maxHp=5+level; m_attack=2+level; m_defense=0; m_expReward=5+level; m_goldReward=1; m_viewRadius=5; break;
         case MonsterType::Slime: m_maxHp=8+level*2; m_attack=1+level; m_defense=0; m_expReward=5+level; m_goldReward=2; m_viewRadius=3; break;
         case MonsterType::Orc: m_maxHp=25+level*4; m_attack=8+level; m_defense=5; m_expReward=30+level*5; m_goldReward=15+level; m_viewRadius=5; break;
-        case MonsterType::Boss: m_maxHp=60+level*10; m_attack=12+level; m_defense=8; m_expReward=100+level*10; m_goldReward=50+level; m_viewRadius=7; break;
+        case MonsterType::Boss: m_maxHp=60+level*10; m_attack=10+level; m_defense=7; m_expReward=100+level*10; m_goldReward=50+level; m_viewRadius=7; break;
     }
     m_currentHp = m_maxHp;
 }

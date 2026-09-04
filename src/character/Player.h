@@ -9,7 +9,7 @@ public:
     ~Player() override;  // 释放背包中的所有物品
     int getLevel() const { return m_level; }
     int getExp() const { return m_exp; }
-    int getExpToNextLevel() const { return m_level * 100; }
+    int getExpToNextLevel() const { return 60 + m_level * 30; }  // 升级曲线：1→2需90，逐级+30（原 等级×100 过慢）
     int getMaxHp() const { return m_maxHp; }
     int getCurrentHp() const { return m_currentHp; }
     int getAttack() const { return m_baseAttack + m_attackBonus; }
