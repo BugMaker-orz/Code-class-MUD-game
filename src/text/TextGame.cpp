@@ -1049,10 +1049,17 @@ void TextGame::tryUseItem(const std::string& arg) {
     auto& inv = m_ctx.player->getInventory();
     if (idx < 1 || idx > static_cast<int>(inv.size())) { appendLog("没有这个背包序号。"); return; }
     Item* it = inv[idx - 1];
+    ItemCategory c = it->getCategory();
+    // 满血时使用回血类消耗品：提示无效，不消耗
+    if ((c == ItemCategory::Potion || c == ItemCategory::Food)
+        && m_ctx.player->getCurrentHp() >= m_ctx.player->getMaxHp()) {
+        appendLog("生命是满的，没必要浪费" + it->getName() + "。");
+        return;
+    }
     std::string r = it->use(*m_ctx.player);
     appendLog(r);
-    // 药水使用后消耗
-    if (it->getCategory() == ItemCategory::Potion) {
+    // 消耗品（药水/食物）使用后消失；武器/护甲为装备类，保留在背包
+    if (c == ItemCategory::Potion || c == ItemCategory::Food) {
         m_ctx.player->removeItem(it);
         delete it;
     }
