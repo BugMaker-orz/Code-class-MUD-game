@@ -26,6 +26,7 @@ private:
     bool m_running = true;
     bool m_trading = false;      // 是否处于交易子界面
     bool m_betrayedGuide = false; // 是否攻击并击杀了向导（背叛）：击败魔王后将成为新魔王
+    bool m_attackedGuide = false; // 是否攻击过任意向导：此后全部向导都会咒骂拒绝对话
     std::vector<std::string> m_log;        // 信息日志（保留最近若干条）
     std::map<Npc*, int> m_guideHp;         // 向导剩余血量（攻击向导特性用）
 
@@ -47,6 +48,9 @@ private:
     // 命令
     void handleCommand(const std::string& line);
     void printHelp();
+    // 存档 / 读档（把玩家、当前层地图、实体、日志完整写入文本文件）
+    void saveGame();
+    void loadGame();
 
     // 房间动作
     const Map::Room& curRoom();

@@ -15,6 +15,7 @@ public:
     // 按楼层返回向导/商人的名字与台词（剧情逐层推进 + 整活风格）
     static std::string guideName(int lvl);
     static std::vector<std::string> guideDialogue(int lvl);
+    static std::vector<std::string> guideCurse(int lvl);   // 被玩家攻击后拒绝对话的咒骂（逐层不同）
     static std::vector<std::string> merchantDialogue(int lvl);
 private:
     NpcType m_type;

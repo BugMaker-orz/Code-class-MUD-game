@@ -28,6 +28,11 @@ void Monster::takeDamage(int damage) {
     if (m_currentHp < 0) m_currentHp = 0;
     if (m_currentHp == 0) m_isAlive = false;
 }
+void Monster::setCurrentHp(int hp) {
+    m_currentHp = hp;
+    if (m_currentHp > m_maxHp) m_currentHp = m_maxHp;
+    if (m_currentHp <= 0) { m_currentHp = 0; m_isAlive = false; }
+}
 std::string Monster::getDescription() const {
     return m_name + "（生命 " + std::to_string(m_currentHp) + "/" + std::to_string(m_maxHp) + "）";
 }

@@ -16,6 +16,7 @@ public:
     bool isHostile() const { return m_hostile; }
     int getViewRadius() const { return m_viewRadius; }
     void takeDamage(int damage);
+    void setCurrentHp(int hp);   // 读档恢复剩余血量
     void setHostile(bool hostile) { m_hostile = hostile; }
     AIState getAIState() const { return m_aiState; }
     void setAIState(AIState state) { m_aiState = state; }

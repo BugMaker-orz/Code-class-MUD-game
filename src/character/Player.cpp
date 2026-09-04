@@ -63,6 +63,23 @@ void Player::unequipWeapon() {
 void Player::unequipArmor() {
     if (m_armor) { m_defenseBonus -= m_armor->getDefenseBonus(); m_armor = nullptr; }
 }
+void Player::restore(int level, int exp, int maxHp, int hp, int baseAtk, int baseDef, int gold) {
+    m_level = level;
+    m_exp = exp;
+    m_maxHp = maxHp;
+    m_currentHp = hp;
+    m_baseAttack = baseAtk;
+    m_baseDefense = baseDef;
+    m_gold = gold;
+    // 装备加成由随后的 equip 重建，这里先清零
+    m_attackBonus = 0;
+    m_defenseBonus = 0;
+    m_weapon = nullptr;
+    m_armor = nullptr;
+    if (m_currentHp > m_maxHp) m_currentHp = m_maxHp;
+    if (m_currentHp <= 0) m_currentHp = 1;
+    m_isAlive = true;
+}
 std::string Player::getDescription() const {
     std::string desc = m_name + " 等级" + std::to_string(m_level)
         + " 生命 " + std::to_string(m_currentHp) + "/" + std::to_string(m_maxHp)

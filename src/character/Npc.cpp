@@ -88,6 +88,30 @@ std::vector<std::string> Npc::guideDialogue(int lvl) {
     }
 }
 
+std::vector<std::string> Npc::guideCurse(int lvl) {
+    switch (lvl) {
+        case 2: return {
+            "大锤：滚！老子给你指过路，你反手就给老子一剑？",
+            "大锤：白眼狼，矿洞塌方我可不给你收尸！"
+        };
+        case 3: return {
+            "阿贞：圣光不度背刺之人……你走吧，别脏了我的眼睛。",
+            "阿贞：亏我还想给你讲讲炼金术士的往事，现在看来，你俩是一路货色。"
+        };
+        case 4: return {
+            "刀疤：我刀疤这辈子最恨背后捅刀子的人，你算是头一个敢捅向导的。",
+            "刀疤：再敢靠近一步，我让你见识见识什么叫‘巡逻队的待客之道’。"
+        };
+        case 5: return {
+            "黑哥：……你连引路人都下得去手。行，深渊正合你的胃口。",
+            "黑哥：去吧，去坐那把椅子。等魔王死了，看看谁才是真正的怪物。"
+        };
+        default: return {
+            "老马：滚！亏我一把年纪还给你指路，你转头就砍我？",
+            "老马：心黑成这样，下第 5 层之前先想想自己跟魔王有啥区别吧！"
+        };
+    }
+}
 std::vector<std::string> Npc::merchantDialogue(int lvl) {
     switch (lvl) {
         case 2: return { "商人：矿工们都说我黑，我这是良心价，只不过良心是二手的。", "商人：输入「交易」可以买卖装备和药水。" };

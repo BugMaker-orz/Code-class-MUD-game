@@ -4,6 +4,7 @@
 #include "item/DropSystem.h"
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <optional>
 #include <algorithm>
 #include <cstdlib>
@@ -83,6 +84,7 @@ void TextGame::newGame() {
     cleanup();
     m_ctx.currentLevel = 1;
     m_betrayedGuide = false;
+    m_attackedGuide = false;
     m_guideHp.clear();
     m_ctx.player = new Player("冒险者", Position(0, 0));
     m_ctx.currentShop = new ShopSystem();
@@ -234,6 +236,127 @@ static std::string argAfter(const std::string& line, const std::string& token) {
 void TextGame::appendLog(const std::string& msg) {
     m_log.push_back(msg);
     if (m_log.size() > 200) m_log.erase(m_log.begin());   // 保留足够历史，避免旧信息过早消失
+}
+// ==================== 存档 / 读档 辅助 ====================
+// 存档文件：可执行文件所在工作目录下的 save_mud.txt（UTF-8 文本）
+static const char* SAVE_FILE = "save_mud.txt";
+static std::vector<std::string> splitStr(const std::string& s, char sep) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (char c : s) {
+        if (c == sep) { out.push_back(cur); cur.clear(); }
+        else cur += c;
+    }
+    out.push_back(cur);
+    return out;
+}
+// —— 物品：类别 / 稀有度 ——
+static std::string catToStr(ItemCategory c) {
+    switch (c) {
+        case ItemCategory::Weapon: return "Weapon";
+        case ItemCategory::Armor: return "Armor";
+        case ItemCategory::Potion: return "Potion";
+        case ItemCategory::Scroll: return "Scroll";
+        case ItemCategory::Gold: return "Gold";
+        case ItemCategory::Key: return "Key";
+        case ItemCategory::Food: return "Food";
+        case ItemCategory::QuestItem: return "Quest";
+        default: return "Gold";
+    }
+}
+static ItemCategory catFromStr(const std::string& s) {
+    if (s == "Weapon") return ItemCategory::Weapon;
+    if (s == "Armor") return ItemCategory::Armor;
+    if (s == "Potion") return ItemCategory::Potion;
+    if (s == "Scroll") return ItemCategory::Scroll;
+    if (s == "Key") return ItemCategory::Key;
+    if (s == "Food") return ItemCategory::Food;
+    if (s == "Quest") return ItemCategory::QuestItem;
+    return ItemCategory::Gold;
+}
+static std::string rarToStr(ItemRarity r) {
+    switch (r) {
+        case ItemRarity::Common: return "Common";
+        case ItemRarity::Uncommon: return "Uncommon";
+        case ItemRarity::Rare: return "Rare";
+        case ItemRarity::Epic: return "Epic";
+        case ItemRarity::Legendary: return "Legendary";
+        default: return "Common";
+    }
+}
+static ItemRarity rarFromStr(const std::string& s) {
+    if (s == "Uncommon") return ItemRarity::Uncommon;
+    if (s == "Rare") return ItemRarity::Rare;
+    if (s == "Epic") return ItemRarity::Epic;
+    if (s == "Legendary") return ItemRarity::Legendary;
+    return ItemRarity::Common;
+}
+// —— 怪物 / NPC 类型 ——
+static std::string monToStr(MonsterType t) {
+    switch (t) {
+        case MonsterType::Goblin: return "Goblin";
+        case MonsterType::Skeleton: return "Skeleton";
+        case MonsterType::Bat: return "Bat";
+        case MonsterType::Slime: return "Slime";
+        case MonsterType::Orc: return "Orc";
+        case MonsterType::Boss: return "Boss";
+        default: return "Goblin";
+    }
+}
+static MonsterType monFromStr(const std::string& s) {
+    if (s == "Skeleton") return MonsterType::Skeleton;
+    if (s == "Bat") return MonsterType::Bat;
+    if (s == "Slime") return MonsterType::Slime;
+    if (s == "Orc") return MonsterType::Orc;
+    if (s == "Boss") return MonsterType::Boss;
+    return MonsterType::Goblin;
+}
+static std::string npcTypeToStr(Npc::NpcType t) {
+    return (t == Npc::NpcType::Merchant) ? "Merchant" : "Guide";
+}
+static Npc::NpcType npcTypeFromStr(const std::string& s) {
+    return (s == "Merchant") ? Npc::NpcType::Merchant : Npc::NpcType::Guide;
+}
+// —— 房间类型 ——
+static int roomTypeToInt(Map::RoomType t) {
+    switch (t) {
+        case Map::RoomType::Normal: return 0;
+        case Map::RoomType::Start: return 1;
+        case Map::RoomType::Boss: return 2;
+        case Map::RoomType::Treasure: return 3;
+        case Map::RoomType::Shop: return 4;
+        case Map::RoomType::StairsDown: return 5;
+        default: return 0;
+    }
+}
+static Map::RoomType roomTypeFromInt(int v) {
+    switch (v) {
+        case 1: return Map::RoomType::Start;
+        case 2: return Map::RoomType::Boss;
+        case 3: return Map::RoomType::Treasure;
+        case 4: return Map::RoomType::Shop;
+        case 5: return Map::RoomType::StairsDown;
+        default: return Map::RoomType::Normal;
+    }
+}
+// —— 物品行序列化：cat|rar|name|symbol|value|atk|def|heal|stack ——
+static std::string saveItemLine(const Item& it) {
+    return catToStr(it.getCategory()) + "|" + rarToStr(it.getRarity()) + "|"
+        + it.getName() + "|" + it.getSymbol() + "|" + std::to_string(it.getValue()) + "|"
+        + std::to_string(it.getAttackBonus()) + "|" + std::to_string(it.getDefenseBonus()) + "|"
+        + std::to_string(it.getHealAmount()) + "|" + std::to_string(it.getStackSize());
+}
+static Item* makeItemFromLine(const std::string& line) {
+    auto t = splitStr(line, '|');
+    if (t.size() < 9) return new Item("未知物品", '?', ItemCategory::Gold);
+    char sym = t[3].empty() ? '$' : t[3][0];
+    Item* it = new Item(t[2], sym, catFromStr(t[0]), rarFromStr(t[1]));
+    it->setValue(atoi(t[4].c_str()));
+    it->setAttackBonus(atoi(t[5].c_str()));
+    it->setDefenseBonus(atoi(t[6].c_str()));
+    it->setHealAmount(atoi(t[7].c_str()));
+    it->setStackSize(atoi(t[8].c_str()));
+    return it;
 }
 
 // ==================== 渲染 ====================
@@ -542,6 +665,9 @@ void TextGame::handleCommand(const std::string& line) {
     if (low == "历史" || low == "history" || low == "log" || low == "日志") { showHistory(); return; }
     // 帮助
     if (low == "帮助" || low == "help" || low == "?") { printHelp(); return; }
+    // 存档 / 读档
+    if (low == "保存" || low == "存档" || low == "save") { saveGame(); return; }
+    if (low == "读取" || low == "读档" || low == "load") { loadGame(); return; }
     // 退出
     if (low == "退出" || low == "quit" || low == "q" || low == "exit") { m_running = false; return; }
 
@@ -737,6 +863,8 @@ void TextGame::tryAttack(const std::string& target) {
 }
 
 void TextGame::tryAttackGuide(Npc* guide) {
+    // 攻击过任意向导：全地牢的向导都会知道你是叛徒
+    m_attackedGuide = true;
     // 向导血量：40 + 层×15（比同级怪物肉一些，补给充分即可击杀）
     int maxHp = 40 + m_ctx.currentLevel * 15;
     auto it = m_guideHp.find(guide);
@@ -856,6 +984,15 @@ void TextGame::tryTalk() {
         appendLog("商人：要交易的话输入「交易」吧。");
         return;
     }
+    // 向导：攻击过任意向导 → 全部向导拒绝对话，改为咒骂（鲜红，与攻击提示同色系）
+    if (m_attackedGuide) {
+        appendLog(col(C_RED, "你试图与【" + npc->getName() + "】搭话……"));
+        appendLog(col(C_RED, npc->getName() + "：滚开！跟你没什么好说的！"));
+        for (const auto& l : Npc::guideCurse(m_ctx.currentLevel))
+            appendLog(col(C_RED, l));
+        appendLog(col(C_RED, "（向导拒绝提供任何剧情信息。叛徒之路，没有回头路。）"));
+        return;
+    }
     // 向导剧情对话
     appendLog(col(C_CYAN, "===== " + npc->getName() + " ====="));
     for (const auto& l : npc->getDialogue()) {
@@ -971,8 +1108,227 @@ void TextGame::printHelp() {
     appendLog("等待           —— 原地等待一回合");
     appendLog("查看           —— 重新查看当前房间");
     appendLog("历史           —— 查看全部历史信息（旧信息不会消失）");
+    appendLog("保存           —— 把当前进度写入存档文件 save_mud.txt");
+    appendLog("读取           —— 从存档文件读档，继续上次的冒险");
     appendLog("帮助           —— 显示本帮助");
     appendLog("退出           —— 退出游戏");
+}
+// ==================== 存档 / 读档 ====================
+void TextGame::saveGame() {
+    if (!m_ctx.player || m_ctx.state != GameContext::GameState::Playing) {
+        appendLog("当前状态无法存档（只有冒险进行中才能保存）。");
+        return;
+    }
+    std::ofstream f(SAVE_FILE, std::ios::out | std::ios::trunc);
+    if (!f) { appendLog("存档失败：无法写入 " + std::string(SAVE_FILE) + "。"); return; }
+    Player* p = m_ctx.player;
+    f << "MUDTEXT_SAVE_V1\n";
+    f << "level=" << m_ctx.currentLevel << "\n";
+    f << "room=" << m_currentRoom << "\n";
+    f << "prevRoom=" << m_prevRoom << "\n";
+    f << "betrayed=" << (m_betrayedGuide ? 1 : 0) << "\n";
+    f << "attacked=" << (m_attackedGuide ? 1 : 0) << "\n";
+    f << "trading=" << (m_trading ? 1 : 0) << "\n";
+    // 玩家
+    f << "p_level=" << p->getLevel() << "\n";
+    f << "p_exp=" << p->getExp() << "\n";
+    f << "p_maxhp=" << p->getMaxHp() << "\n";
+    f << "p_hp=" << p->getCurrentHp() << "\n";
+    // 基础攻/防 = 当前值 - 装备加成
+    int weaponBonus = (p->getWeapon()) ? p->getWeapon()->getAttackBonus() : 0;
+    int armorBonus  = (p->getArmor()) ? p->getArmor()->getDefenseBonus() : 0;
+    f << "p_baseAtk=" << (p->getAttack() - weaponBonus) << "\n";
+    f << "p_baseDef=" << (p->getDefense() - armorBonus) << "\n";
+    f << "p_gold=" << p->getGold() << "\n";
+    // 背包
+    const auto& inv = p->getInventory();
+    f << "inv_count=" << inv.size() << "\n";
+    int wi = -1, ai = -1;
+    for (size_t i = 0; i < inv.size(); ++i) {
+        if (inv[i] == p->getWeapon()) wi = static_cast<int>(i);
+        if (inv[i] == p->getArmor()) ai = static_cast<int>(i);
+        f << "inv=" << saveItemLine(*inv[i]) << "\n";
+    }
+    f << "weapon_idx=" << wi << "\n";
+    f << "armor_idx=" << ai << "\n";
+    // 当前层房间类型（拓扑固定，类型随机分配 → 必须记录）
+    const auto& rooms = m_ctx.currentMap->getRooms();
+    f << "room_count=" << rooms.size() << "\n";
+    {
+        std::string rt;
+        for (const auto& r : rooms) { rt += std::to_string(roomTypeToInt(r.type)) + " "; }
+        f << "rtype=" << trim(rt) << "\n";
+    }
+    int stairsRoom = -1;
+    for (size_t i = 0; i < rooms.size(); ++i)
+        if (rooms[i].type == Map::RoomType::StairsDown) { stairsRoom = static_cast<int>(i); break; }
+    f << "stairs_room=" << stairsRoom << "\n";
+    // 当前层怪物（只存活怪；属性由 类型+层数 重建）
+    int monCount = 0;
+    for (Monster* m : m_ctx.monsters) if (m->isAlive()) ++monCount;
+    f << "mon_count=" << monCount << "\n";
+    for (Monster* m : m_ctx.monsters) {
+        if (!m->isAlive()) continue;
+        const Position& mp = m->getPosition();
+        f << "mon=" << monToStr(m->getMonsterType()) << "|" << m->getCurrentHp()
+          << "|" << mp.x << "|" << mp.y << "\n";
+    }
+    // 当前层 NPC（向导血量一并记录）
+    f << "npc_count=" << m_ctx.npcs.size() << "\n";
+    int guideHpSaved = -1;
+    for (Npc* n : m_ctx.npcs) {
+        const Position& np = n->getPosition();
+        f << "npc=" << npcTypeToStr(n->getNpcType()) << "|" << n->getName()
+          << "|" << np.x << "|" << np.y << "\n";
+        if (n->getNpcType() == Npc::NpcType::Guide) {
+            int maxHp = 40 + m_ctx.currentLevel * 15;
+            auto it = m_guideHp.find(n);
+            guideHpSaved = (it == m_guideHp.end()) ? maxHp : it->second;
+        }
+    }
+    f << "guide_hp=" << guideHpSaved << "\n";
+    // 地上物品
+    f << "ground_count=" << m_ctx.itemsOnGround.size() << "\n";
+    for (Item* it : m_ctx.itemsOnGround) {
+        const Position& ip = it->getPosition();
+        f << "ground=" << saveItemLine(*it) << "|" << ip.x << "|" << ip.y << "\n";
+    }
+    // 商店（交易界面时保留货架）
+    const auto& shopItems = m_ctx.currentShop->getItems();
+    f << "shop_count=" << shopItems.size() << "\n";
+    for (const auto& si : shopItems)
+        f << "shop=" << saveItemLine(*si.item) << "|" << si.buyPrice << "|" << si.sellPrice << "\n";
+    // 日志
+    f << "log_count=" << m_log.size() << "\n";
+    for (const auto& l : m_log) f << "log=" << l << "\n";
+    f.close();
+    appendLog(col(C_GREEN, "存档成功！进度已写入 " + std::string(SAVE_FILE)
+              + "（下次输入「读取」继续冒险）。"));
+}
+void TextGame::loadGame() {
+    std::ifstream f(SAVE_FILE);
+    if (!f) { appendLog("没有找到存档文件 " + std::string(SAVE_FILE) + "。"); return; }
+    std::map<std::string, std::string> kv;
+    std::vector<std::string> invLines, monLines, npcLines, groundLines, shopLines, logLines;
+    std::string version;
+    std::string line;
+    while (std::getline(f, line)) {
+        if (line.empty()) continue;
+        if (line.rfind("MUDTEXT_SAVE", 0) == 0) { version = line; continue; }
+        if (line.rfind("inv=", 0) == 0) { invLines.push_back(line.substr(4)); continue; }
+        if (line.rfind("mon=", 0) == 0) { monLines.push_back(line.substr(4)); continue; }
+        if (line.rfind("npc=", 0) == 0) { npcLines.push_back(line.substr(4)); continue; }
+        if (line.rfind("ground=", 0) == 0) { groundLines.push_back(line.substr(7)); continue; }
+        if (line.rfind("shop=", 0) == 0) { shopLines.push_back(line.substr(5)); continue; }
+        if (line.rfind("log=", 0) == 0) { logLines.push_back(line.substr(4)); continue; }
+        size_t eq = line.find('=');
+        if (eq != std::string::npos) kv[line.substr(0, eq)] = line.substr(eq + 1);
+    }
+    if (version.empty()) { appendLog("存档文件格式无效，无法读取。"); return; }
+    auto val = [&](const std::string& k, int def) -> int {
+        auto it = kv.find(k);
+        return (it == kv.end()) ? def : atoi(it->second.c_str());
+    };
+    int level = val("level", 1);
+    if (level < 1 || level > 5) { appendLog("存档数据异常（层数超出范围），读取中止。"); return; }
+    // 清空当前局，开始重建
+    cleanup();
+    m_ctx.currentLevel = level;
+    m_betrayedGuide = (kv.count("betrayed") && kv["betrayed"] == "1");
+    m_attackedGuide = (kv.count("attacked") && kv["attacked"] == "1");   // 旧存档无此字段 → 默认 false
+    m_trading = (kv.count("trading") && kv["trading"] == "1");
+    m_log = logLines;
+    // 玩家：属性 + 背包 + 装备
+    m_ctx.player = new Player("冒险者", Position(0, 0));
+    m_ctx.player->restore(val("p_level", 1), val("p_exp", 0), val("p_maxhp", 36),
+                          val("p_hp", 36), val("p_baseAtk", 6), val("p_baseDef", 3),
+                          val("p_gold", 0));
+    for (const auto& il : invLines) m_ctx.player->addItem(makeItemFromLine(il));
+    {
+        auto& inv = m_ctx.player->getInventory();
+        int wi = val("weapon_idx", -1), ai = val("armor_idx", -1);
+        if (wi >= 0 && wi < static_cast<int>(inv.size())) m_ctx.player->equipWeapon(inv[wi]);
+        if (ai >= 0 && ai < static_cast<int>(inv.size())) m_ctx.player->equipArmor(inv[ai]);
+    }
+    // 当前层地图：拓扑固定，但房间类型随机 → 用存档的类型覆盖
+    m_ctx.currentShop = new ShopSystem();
+    DungeonGenerator gen;
+    Map* map = new Map(gen.generateDungeon(level, 5));
+    m_ctx.currentMap = map;
+    for (int x = 0; x < map->getWidth(); ++x)
+        for (int y = 0; y < map->getHeight(); ++y) { map->setVisible(x, y, true); map->setExplored(x, y, true); }
+    if (kv.count("rtype")) {
+        auto toks = splitStr(kv["rtype"], ' ');
+        for (size_t i = 0; i < toks.size() && i < map->getRooms().size(); ++i)
+            map->setRoomType(i, roomTypeFromInt(atoi(toks[i].c_str())));
+    }
+    {
+        int stairsRoom = val("stairs_room", -1);
+        if (stairsRoom >= 0 && stairsRoom < static_cast<int>(map->getRooms().size())) {
+            Position c = map->getRooms()[stairsRoom].getCenter();
+            map->setTile(c, TileType::StairsDown);
+        }
+    }
+    m_currentRoom = val("room", 0);
+    m_prevRoom = val("prevRoom", 0);
+    if (m_currentRoom < 0 || m_currentRoom >= static_cast<int>(map->getRooms().size())) m_currentRoom = 0;
+    if (m_prevRoom < 0 || m_prevRoom >= static_cast<int>(map->getRooms().size())) m_prevRoom = m_currentRoom;
+    // 怪物（属性由 类型+层数 重建，血量按存档）
+    for (const auto& ml : monLines) {
+        auto t = splitStr(ml, '|');   // type|hp|x|y
+        if (t.size() < 4) continue;
+        Monster* m = new Monster(monFromStr(t[0]), Position(atoi(t[2].c_str()), atoi(t[3].c_str())), level);
+        m->setCurrentHp(atoi(t[1].c_str()));
+        m_ctx.addMonster(m);
+    }
+    // NPC（名字与位置按存档，台词按层重建）
+    for (const auto& nl : npcLines) {
+        auto t = splitStr(nl, '|');   // type|name|x|y
+        if (t.size() < 4) continue;
+        Npc::NpcType nt = npcTypeFromStr(t[0]);
+        Npc* n = (nt == Npc::NpcType::Merchant)
+            ? new Npc("商人", '$', Position(atoi(t[2].c_str()), atoi(t[3].c_str())), Npc::NpcType::Merchant)
+            : new Npc(t[1], '?', Position(atoi(t[2].c_str()), atoi(t[3].c_str())), Npc::NpcType::Guide);
+        n->setDialogue((nt == Npc::NpcType::Merchant) ? Npc::merchantDialogue(level) : Npc::guideDialogue(level));
+        m_ctx.addNpc(n);
+        // 向导残血状态
+        if (nt == Npc::NpcType::Guide) {
+            int gh = val("guide_hp", -1);
+            int maxHp = 40 + level * 15;
+            if (gh >= 0 && gh < maxHp) m_guideHp[n] = gh;
+        }
+    }
+    // 地上物品
+    for (const auto& gl : groundLines) {
+        auto t = splitStr(gl, '|');   // itemline(9段) + x|y
+        if (t.size() < 11) continue;
+        std::string itemPart;
+        for (int i = 0; i < 9; ++i) { if (i) itemPart += "|"; itemPart += t[i]; }
+        Item* it = makeItemFromLine(itemPart);
+        it->setPosition(Position(atoi(t[9].c_str()), atoi(t[10].c_str())));
+        m_ctx.addItemOnGround(it);
+    }
+    // 商店货架
+    std::vector<ShopItem> shopItems;
+    for (const auto& sl : shopLines) {
+        auto t = splitStr(sl, '|');   // itemline(9段) + buy|sell
+        if (t.size() < 11) continue;
+        std::string itemPart;
+        for (int i = 0; i < 9; ++i) { if (i) itemPart += "|"; itemPart += t[i]; }
+        ShopItem si;
+        si.item = makeItemFromLine(itemPart);
+        si.buyPrice = atoi(t[9].c_str());
+        si.sellPrice = atoi(t[10].c_str());
+        si.quantity = -1;
+        shopItems.push_back(si);
+    }
+    m_ctx.currentShop->generateShopItems(shopItems);
+    // 玩家落位 + 回到冒险状态
+    m_ctx.player->setPosition(map->getRooms()[m_currentRoom].getCenter());
+    m_ctx.state = GameContext::GameState::Playing;
+    m_running = true;
+    appendLog(col(C_GREEN, "读档成功！欢迎回来，勇者。"));
+    appendLog("你身处地牢第 " + std::to_string(level) + " 层。");
 }
 
 // ==================== 主循环 ====================

@@ -33,6 +33,8 @@ public:
     void equipArmor(Item* armor);
     void unequipWeapon();
     void unequipArmor();
+    // 读档恢复：覆盖全部成长属性（背包/装备由调用方随后重建）
+    void restore(int level, int exp, int maxHp, int hp, int baseAtk, int baseDef, int gold);
     std::string getDescription() const override;
 private:
     int m_level, m_exp;

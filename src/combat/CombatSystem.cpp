@@ -19,7 +19,9 @@ int CombatSystem::calculateDamage(int attackerAttack, int defenderDefense) {
 CombatResult CombatSystem::playerAttackMonster(Player& player, Monster& monster, GameContext& context) {
     CombatResult result;
     if (!checkHit(player.getAttack(), monster.getDefense())) {
-        result.message = "你挥剑攻击" + monster.getName() + "，可惜落空了！";
+        result.message = "你挥剑攻击" + monster.getName() + "，可惜落空了！（"
+            + monster.getName() + " HP " + std::to_string(monster.getCurrentHp()) + "/"
+            + std::to_string(monster.getMaxHp()) + "）";
         return result;
     }
     int damage = calculateDamage(player.getAttack(), monster.getDefense());
@@ -34,19 +36,28 @@ CombatResult CombatSystem::playerAttackMonster(Player& player, Monster& monster,
         result.message += " " + monster.getName() + " 被击败了！获得 "
             + std::to_string(result.expGained) + " 经验，"
             + std::to_string(result.goldGained) + " 金币。";
+    } else {
+        // 未击杀：像向导那样把剩余血量标出来
+        result.message += "（" + monster.getName() + " HP "
+            + std::to_string(monster.getCurrentHp()) + "/"
+            + std::to_string(monster.getMaxHp()) + "）";
     }
     return result;
 }
 CombatResult CombatSystem::monsterAttackPlayer(Monster& monster, Player& player, GameContext& context) {
     CombatResult result;
     if (!checkHit(monster.getAttack(), player.getDefense())) {
-        result.message = monster.getName() + " 向你扑来，但没有打中你。";
+        result.message = monster.getName() + " 向你扑来，但没有打中你。（"
+            + monster.getName() + " HP " + std::to_string(monster.getCurrentHp()) + "/"
+            + std::to_string(monster.getMaxHp()) + "）";
         return result;
     }
     int damage = calculateDamage(monster.getAttack(), player.getDefense());
     player.takeDamage(damage);
     result.damageReceived = damage;
-    result.message = monster.getName() + " 攻击了你，造成 " + std::to_string(damage) + " 点伤害！";
+    result.message = monster.getName() + " 攻击了你，造成 " + std::to_string(damage) + " 点伤害！（"
+        + monster.getName() + " HP " + std::to_string(monster.getCurrentHp()) + "/"
+        + std::to_string(monster.getMaxHp()) + "）";
     if (!player.isAlive()) {
         result.targetKilled = true;
         context.state = GameContext::GameState::Dead;
