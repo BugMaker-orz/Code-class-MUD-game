@@ -1,0 +1,14 @@
+# 构建产物
+build/
+cmake-build-*/
+*.o
+*.obj
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 系统
+.DS_Store
