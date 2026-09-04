@@ -14,6 +14,10 @@ public:
     int getCurrentHp() const { return m_currentHp; }
     int getAttack() const { return m_baseAttack + m_attackBonus; }
     int getDefense() const { return m_baseDefense + m_defenseBonus; }
+    int getBaseAttack() const { return m_baseAttack; }    // 基础攻击（不含装备加成）
+    int getBaseDefense() const { return m_baseDefense; }  // 基础防御（不含装备加成）
+    int getAttackBonus() const { return m_attackBonus; }  // 装备攻击加成
+    int getDefenseBonus() const { return m_defenseBonus; } // 装备防御加成
     int getGold() const { return m_gold; }
     const std::vector<Item*>& getInventory() const { return m_inventory; }
     std::vector<Item*>& getInventory() { return m_inventory; }

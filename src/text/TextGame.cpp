@@ -519,14 +519,26 @@ void TextGame::renderRoomDesc(std::ostream& out) {
 
 void TextGame::renderStatus(std::ostream& out) {
     Player* p = m_ctx.player;
+    // 攻击/防御：基础值（+装备加成）
+    std::string atk = std::to_string(p->getBaseAttack());
+    if (p->getAttackBonus() > 0) atk += "(+" + std::to_string(p->getAttackBonus()) + ")";
+    std::string def = std::to_string(p->getBaseDefense());
+    if (p->getDefenseBonus() > 0) def += "(+" + std::to_string(p->getDefenseBonus()) + ")";
     out << col(C_MAGENTA, "【状态】") << col(C_BLUE, "【勇者】")
         << " " << col(C_RED, "HP " + std::to_string(p->getCurrentHp()) + "/" + std::to_string(p->getMaxHp()))
         << " | " << col(C_YELLOW, "等级 " + std::to_string(p->getLevel()))
-        << " | " << "攻 " << p->getAttack()
-        << " | " << "防 " << p->getDefense()
+        << " | " << "攻 " << atk
+        << " | " << "防 " << def
         << " | " << col(C_ORANGE, "金币 " + std::to_string(p->getGold()))
         << " | " << col(C_GREEN, "经验 " + std::to_string(p->getExp()) + "/" + std::to_string(p->getExpToNextLevel()))
         << "\n";
+    // 当前装备列表
+    out << "装备：";
+    if (p->getWeapon()) out << col(C_YELLOW, "[武器:" + p->getWeapon()->getName() + "]");
+    else out << "[武器:无]";
+    if (p->getArmor()) out << col(C_YELLOW, "[护甲:" + p->getArmor()->getName() + "]");
+    else out << "[护甲:无]";
+    out << "\n";
 }
 
 void TextGame::renderLog(std::ostream& out) {
@@ -1037,7 +1049,10 @@ void TextGame::showInventory() {
     appendLog(col(C_CYAN, "===== 背包 ====="));
     int i = 1;
     for (Item* it : p->getInventory()) {
-        appendLog("[" + std::to_string(i) + "] " + it->getFullDescription());
+        // 已装备的装备加标记
+        std::string mark = "";
+        if (it == p->getWeapon() || it == p->getArmor()) mark = col(C_YELLOW, "【已装备】");
+        appendLog("[" + std::to_string(i) + "] " + mark + it->getFullDescription());
         ++i;
     }
     appendLog("输入「使用 序号」使用/装备。");
