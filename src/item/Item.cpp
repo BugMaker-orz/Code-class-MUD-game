@@ -24,6 +24,7 @@ std::string rarityToChinese(ItemRarity rarity) {
         default: return "未知";
     }
 }
+// 构造函数：默认价值为 1，按类别覆盖（药水 10 / 武器、护甲 20 / 金币 1 / 其他 5）
 Item::Item(const std::string& name, char symbol, ItemCategory category, ItemRarity rarity)
     : Entity(name, Position(0,0), symbol), m_category(category), m_rarity(rarity),
       m_value(1), m_weight(1), m_stackable(false), m_stackSize(1),
@@ -36,6 +37,7 @@ Item::Item(const std::string& name, char symbol, ItemCategory category, ItemRari
         default: m_value = 5;
     }
 }
+// 使用物品：按类别分派——药水/食物回血、武器/护甲直接装备
 std::string Item::use(Player& player) {
     switch (m_category) {
         case ItemCategory::Potion:
@@ -55,6 +57,7 @@ std::string Item::use(Player& player) {
     }
 }
 std::string Item::getDescription() const { return m_name; }
+// 完整描述：稀有度 + 名称 + 类别，附攻/防/恢复数值与价值
 std::string Item::getFullDescription() const {
     std::string desc = "[" + rarityToChinese(m_rarity) + "]" + m_name + "（" + categoryToChinese(m_category);
     if (m_attackBonus > 0) desc += "，攻击+" + std::to_string(m_attackBonus);

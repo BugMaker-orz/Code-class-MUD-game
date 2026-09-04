@@ -1,7 +1,9 @@
 ﻿#include "character/Monster.h"
 namespace dq {
+// 构造函数：按类型设置中文名与显示符号，再按层数初始化属性
 Monster::Monster(MonsterType type, const Position& pos, int level)
     : Entity("", pos, 'g'), m_type(type), m_hostile(true), m_aiState(AIState::Idle) {
+    // 怪物类型 → 中文名/显示符号映射
     switch (type) {
         case MonsterType::Goblin: m_name = "哥布林"; m_symbol = 'g'; break;
         case MonsterType::Skeleton: m_name = "骷髅"; m_symbol = 's'; break;
@@ -12,6 +14,8 @@ Monster::Monster(MonsterType type, const Position& pos, int level)
     }
     initializeStats(level);
 }
+// 按类型 + 层数计算属性：血量/攻防/经验/金币随层数线性成长，
+// 定位差异明显——蝙蝠快而脆、兽人血厚、魔王为最高数值的 Boss
 void Monster::initializeStats(int level) {
     switch (m_type) {
         case MonsterType::Goblin: m_maxHp=10+level*2; m_attack=3+level; m_defense=1; m_expReward=10+level*2; m_goldReward=5+level; m_viewRadius=4; break;
@@ -23,16 +27,19 @@ void Monster::initializeStats(int level) {
     }
     m_currentHp = m_maxHp;
 }
+// 受伤结算：生命下限 0，归零即标记死亡
 void Monster::takeDamage(int damage) {
     m_currentHp -= damage;
     if (m_currentHp < 0) m_currentHp = 0;
     if (m_currentHp == 0) m_isAlive = false;
 }
+// 读档恢复剩余血量：不超上限，归零判定死亡
 void Monster::setCurrentHp(int hp) {
     m_currentHp = hp;
     if (m_currentHp > m_maxHp) m_currentHp = m_maxHp;
     if (m_currentHp <= 0) { m_currentHp = 0; m_isAlive = false; }
 }
+// 描述文本：状态栏/战斗信息复用，显示当前/满血
 std::string Monster::getDescription() const {
     return m_name + "（生命 " + std::to_string(m_currentHp) + "/" + std::to_string(m_maxHp) + "）";
 }

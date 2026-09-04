@@ -5,19 +5,23 @@
 #include "item/DropSystem.h"
 #include <cstdlib>
 namespace dq {
+// 命中判定：基础命中率 70，攻方每 1 攻 +2%，守方每 1 防 -2%，最终夹在 [20, 95]
 bool CombatSystem::checkHit(int attackerAttack, int defenderDefense) {
     int hitChance = 70 + attackerAttack * 2 - defenderDefense * 2;
     if (hitChance > 95) hitChance = 95;
     if (hitChance < 20) hitChance = 20;
     return (rand() % 100) < hitChance;
 }
+// 伤害计算：攻 - 防/2 为下限 1 的基础值，再叠加 0~2 点随机浮动
 int CombatSystem::calculateDamage(int attackerAttack, int defenderDefense) {
     int base = attackerAttack - defenderDefense / 2;
     if (base < 1) base = 1;
     return base + (rand() % 3);
 }
+// 玩家攻击怪物：先判定命中，命中后结算伤害；击杀则发经验/金币并触发掉落
 CombatResult CombatSystem::playerAttackMonster(Player& player, Monster& monster, GameContext& context) {
     CombatResult result;
+    // 未命中：直接返回并保留怪物剩余血量信息
     if (!checkHit(player.getAttack(), monster.getDefense())) {
         result.message = "你挥剑攻击" + monster.getName() + "，可惜落空了！（"
             + monster.getName() + " HP " + std::to_string(monster.getCurrentHp()) + "/"
@@ -44,6 +48,7 @@ CombatResult CombatSystem::playerAttackMonster(Player& player, Monster& monster,
     }
     return result;
 }
+// 怪物攻击玩家：命中结算伤害；玩家死亡时把游戏状态置为 Dead
 CombatResult CombatSystem::monsterAttackPlayer(Monster& monster, Player& player, GameContext& context) {
     CombatResult result;
     if (!checkHit(monster.getAttack(), player.getDefense())) {
@@ -64,6 +69,7 @@ CombatResult CombatSystem::monsterAttackPlayer(Monster& monster, Player& player,
     }
     return result;
 }
+// 怪物死亡结算：发经验/金币、按掉落表生成物品落到地面、从场景移除
 void CombatSystem::handleMonsterDeath(Monster& monster, Player& player, GameContext& context) {
     player.gainExp(monster.getExpReward());
     player.addGold(monster.getGoldReward());
@@ -71,9 +77,10 @@ void CombatSystem::handleMonsterDeath(Monster& monster, Player& player, GameCont
     for (auto item : drops) {
         context.addItemOnGround(item);
     }
-    // 从列表中移除；对象所有权由 GameLoop 负责 delete
+    // 仅从列表移除，不 delete；对象所有权归 GameContext::cleanup()
     context.removeMonster(&monster);
 }
+// 相邻判定：曼哈顿距离 ≤ 1 视为相邻
 bool CombatSystem::isAdjacent(const Position& a, const Position& b) {
     return a.manhattanDistance(b) <= 1;
 }

@@ -8,6 +8,8 @@
 #include <vector>
 #include <string>
 namespace dq {
+// 全局游戏状态容器：持有当前地图、玩家及场景内全部实体的指针，
+// 并提供增删实体与统一清理（cleanup）的接口。TextGame 通过它访问所有数据。
 class GameContext {
 public:
     enum class GameState { Menu, Playing, Inventory, Shop, Talk, Dead, Victory };

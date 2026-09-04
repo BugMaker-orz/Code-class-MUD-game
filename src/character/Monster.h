@@ -1,7 +1,10 @@
 ﻿#pragma once
 #include "core/Entity.h"
 namespace dq {
+// 怪物类型：哥布林/骷髅/蝙蝠/史莱姆/兽人/魔王（数值与掉落各不相同）
 enum class MonsterType { Goblin, Skeleton, Bat, Slime, Orc, Boss };
+// 怪物实体：属性由"类型 + 层数"初始化，支持受伤与读档恢复血量。
+// AIState 字段为与二维版交互预留，纯文字版仅保留敌对标记。
 class Monster : public Entity {
 public:
     enum class AIState { Idle, Patrol, Chase, Attack };

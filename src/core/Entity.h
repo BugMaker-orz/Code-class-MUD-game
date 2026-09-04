@@ -2,6 +2,9 @@
 #include "Position.h"
 #include <string>
 namespace dq {
+// 实体基类：所有场景对象（玩家/怪物/NPC/物品）的公共接口。
+// 持有名称、坐标、显示符号与存活标记；getDescription() 为纯虚接口，
+// 由派生类提供各自的描述文本，供状态栏/小地图复用。
 class Entity {
 public:
     Entity(const std::string& name, const Position& pos, char symbol)

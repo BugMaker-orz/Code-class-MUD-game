@@ -1,5 +1,6 @@
 ﻿#include "character/Npc.h"
 namespace dq {
+// 构造函数：按 NPC 类型写入默认台词（向导/商人/长者各自的固定开场白）
 Npc::Npc(const std::string& name, char symbol, const Position& pos, NpcType type)
     : Entity(name, pos, symbol), m_type(type) {
     switch (type) {

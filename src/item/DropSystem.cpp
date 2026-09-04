@@ -3,6 +3,7 @@
 #include "core/GameContext.h"
 #include <cstdlib>
 namespace dq {
+// 入口：按怪物类型选择对应掉落表，再逐条掷骰生成
 std::vector<Item*> DropSystem::generateDrops(const Monster& monster, const Position& pos, GameContext& context) {
     std::vector<DropEntry> table;
     switch (monster.getMonsterType()) {
@@ -15,6 +16,7 @@ std::vector<Item*> DropSystem::generateDrops(const Monster& monster, const Posit
     }
     return generateFromTable(table, pos);
 }
+// 逐条掉落表掷骰：命中概率则随机数量生成物品，全部落在指定位置
 std::vector<Item*> DropSystem::generateFromTable(const std::vector<DropEntry>& table, const Position& pos) {
     std::vector<Item*> drops;
     for (const auto& entry : table) {
@@ -33,12 +35,14 @@ std::vector<Item*> DropSystem::generateFromTable(const std::vector<DropEntry>& t
     }
     return drops;
 }
+// 掉落表（怪物 → 战利品池）：金币 60%，治疗药水 20%
 std::vector<DropEntry> DropSystem::getGoblinDropTable() {
     return {
         {ItemCategory::Gold, "金币", '$', 0.6f, 1, 4, 1, 0, 0, 0, ItemRarity::Common},
         {ItemCategory::Potion, "治疗药水", '!', 0.2f, 1, 1, 10, 0, 0, 8, ItemRarity::Common}
     };
 }
+// 骷髅：金币 80%，低概率掉武器/护甲
 std::vector<DropEntry> DropSystem::getSkeletonDropTable() {
     return {
         {ItemCategory::Gold, "金币", '$', 0.8f, 2, 6, 1, 0, 0, 0, ItemRarity::Common},
@@ -46,11 +50,13 @@ std::vector<DropEntry> DropSystem::getSkeletonDropTable() {
         {ItemCategory::Armor, "旧皮甲", '[', 0.1f, 1, 1, 25, 0, 1, 0, ItemRarity::Uncommon}
     };
 }
+// 蝙蝠：穷怪，仅金币 40%
 std::vector<DropEntry> DropSystem::getBatDropTable() {
     return {
         {ItemCategory::Gold, "金币", '$', 0.4f, 1, 2, 1, 0, 0, 0, ItemRarity::Common}
     };
 }
+// 史莱姆：金币 30%，药水 35%，野果 20%
 std::vector<DropEntry> DropSystem::getSlimeDropTable() {
     return {
         {ItemCategory::Gold, "金币", '$', 0.3f, 1, 3, 1, 0, 0, 0, ItemRarity::Common},
@@ -58,6 +64,7 @@ std::vector<DropEntry> DropSystem::getSlimeDropTable() {
         {ItemCategory::Food, "野果", '%', 0.2f, 1, 1, 5, 0, 0, 5, ItemRarity::Common}
     };
 }
+// 兽人：高金币，30% 掉稀有战斧、25% 掉兽皮甲
 std::vector<DropEntry> DropSystem::getOrcDropTable() {
     return {
         {ItemCategory::Gold, "金币", '$', 0.9f, 5, 12, 1, 0, 0, 0, ItemRarity::Common},
@@ -65,6 +72,7 @@ std::vector<DropEntry> DropSystem::getOrcDropTable() {
         {ItemCategory::Armor, "兽皮甲", '[', 0.25f, 1, 1, 55, 0, 3, 0, ItemRarity::Rare}
     };
 }
+// 魔王：必掉大量金币，高概率掉史诗武器/铠甲
 std::vector<DropEntry> DropSystem::getBossDropTable() {
     return {
         {ItemCategory::Gold, "金币", '$', 1.0f, 25, 60, 1, 0, 0, 0, ItemRarity::Common},
@@ -73,6 +81,7 @@ std::vector<DropEntry> DropSystem::getBossDropTable() {
         {ItemCategory::Armor, "秘银铠甲", '[', 0.5f, 1, 1, 120, 0, 5, 0, ItemRarity::Epic}
     };
 }
+// 随机武器：品质随层数提升，攻击加成随层数浮动
 Item* DropSystem::generateRandomWeapon(int level) {
     const char* names[] = {"铁剑", "长剑", "战斧", "精钢剑"};
     Item* weapon = new Item(names[rand() % 4], '/', ItemCategory::Weapon,
@@ -81,6 +90,7 @@ Item* DropSystem::generateRandomWeapon(int level) {
     weapon->setValue(20 + level * 5);
     return weapon;
 }
+// 随机护甲：品质随层数提升，防御加成随层数浮动
 Item* DropSystem::generateRandomArmor(int level) {
     const char* names[] = {"皮甲", "锁子甲", "铁甲", "鳞甲"};
     Item* armor = new Item(names[rand() % 4], '[', ItemCategory::Armor,

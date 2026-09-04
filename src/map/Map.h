@@ -3,8 +3,11 @@
 #include "core/Position.h"
 #include <vector>
 namespace dq {
+// 地图类：二维瓦片网格 + 房间列表。纯文字版仍用房间拓扑做小地图与
+// 移动判定，瓦片级数据保留以便与二维渲染共用（不参与本版编译）。
 class Map {
 public:
+    // 房间属性：起点/普通/Boss/宝箱/商店/楼梯/走廊
     enum class RoomType { Normal, Start, Boss, Treasure, Shop, StairsDown, Corridor };
     Map(int width, int height);
     Map(int width, int height, const std::vector<std::vector<TileType>>& data);
@@ -26,6 +29,7 @@ public:
     bool isExplored(const Position& pos) const;
     void setExplored(int x, int y, bool explored);
     void setExplored(const Position& pos, bool explored);
+    // 房间结构体：矩形范围、地板格、属性类型、连通邻居下标与网格坐标
     struct Room {
         Position topLeft, bottomRight;
         std::vector<Position> floorTiles;

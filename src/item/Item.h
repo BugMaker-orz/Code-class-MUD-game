@@ -3,12 +3,16 @@
 #include <string>
 namespace dq {
 class Player;
+// 物品类别：武器/护甲可装备，药水/食物回血，金币/钥匙/任务物品等
 enum class ItemCategory { Weapon, Armor, Potion, Scroll, Gold, Key, Food, QuestItem };
+// 稀有度：决定显示颜色与掉落权重
 enum class ItemRarity { Common, Uncommon, Rare, Epic, Legendary };
 
 std::string categoryToChinese(ItemCategory category);
 std::string rarityToChinese(ItemRarity rarity);
 
+// 物品实体：继承 Entity。除基础属性外携带价值、攻/防加成、回复量与
+// 堆叠信息，use() 按类别分派到玩家（回血/装备），是背包与商店的基本单元。
 class Item : public Entity {
 public:
     Item(const std::string& name, char symbol, ItemCategory category,
