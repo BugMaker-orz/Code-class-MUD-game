@@ -24,7 +24,7 @@ void ShopSystem::generateShopItems(const std::vector<ShopItem>& items) {
     for (auto& si : m_items) delete si.item;
     m_items = items;  // 注意：这里会复制指针，所有权转移给 ShopSystem
 }
-// 购买：校验下标/库存/金币，成功则复制商品入背包并扣款
+// 购买：校验下标/库存/背包容量/金币，成功则复制商品入背包并扣款
 std::string ShopSystem::buyItem(Player& player, int index, int quantity) {
     if (index < 0 || index >= static_cast<int>(m_items.size()))
         return "没有这个商品。";
@@ -32,6 +32,9 @@ std::string ShopSystem::buyItem(Player& player, int index, int quantity) {
     int totalCost = si.buyPrice * quantity;
     if (quantity > 1 && si.quantity > 0 && si.quantity < quantity)
         return "库存不足。";
+    // 背包容量检查放在扣款之前：非金币商品需要占背包格，满了就不卖（避免扣钱后装不下）
+    if (si.item->getCategory() != ItemCategory::Gold && player.getFreeSlots() < quantity)
+        return "背包满了，装不下「" + si.item->getName() + "」！（可「丢弃 序号」腾出空间）";
     if (!player.spendGold(totalCost))
         return "金币不足，买不起啊！";
     for (int i = 0; i < quantity; ++i) {

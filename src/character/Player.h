@@ -21,10 +21,12 @@ public:
     int getGold() const { return m_gold; }
     const std::vector<Item*>& getInventory() const { return m_inventory; }
     std::vector<Item*>& getInventory() { return m_inventory; }
-    void addItem(Item* item);
+    // 加入背包。返回是否成功：容量满时返回 false 且不吞掉物品（由调用方决定掉落/留地）
+    bool addItem(Item* item);
     void removeItem(Item* item);
     bool hasItem(const Item* item) const;
     int getInventorySize() const { return m_inventory.size(); }
+    int getFreeSlots() const { return MAX_INVENTORY_SIZE - static_cast<int>(m_inventory.size()); }
     void takeDamage(int damage);
     void heal(int amount);
     void gainExp(int amount);

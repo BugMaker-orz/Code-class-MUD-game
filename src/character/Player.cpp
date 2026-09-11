@@ -12,9 +12,11 @@ Player::Player(const std::string& name, const Position& pos)
     : Entity(name, pos, '@'), m_level(1), m_exp(0), m_maxHp(36), m_currentHp(36),
       m_baseAttack(6), m_baseDefense(3), m_gold(0), m_attackBonus(0), m_defenseBonus(0),
       m_weapon(nullptr), m_armor(nullptr) {}
-// 入背包：容量上限 20，超限时静默丢弃
-void Player::addItem(Item* item) {
-    if (m_inventory.size() < MAX_INVENTORY_SIZE) m_inventory.push_back(item);
+// 入背包：容量上限 20。满时返回 false 且不改变任何状态，由调用方决定物品去向（掉落/留地），不再静默丢弃
+bool Player::addItem(Item* item) {
+    if (m_inventory.size() >= MAX_INVENTORY_SIZE) return false;
+    m_inventory.push_back(item);
+    return true;
 }
 void Player::removeItem(Item* item) {
     auto it = std::find(m_inventory.begin(), m_inventory.end(), item);

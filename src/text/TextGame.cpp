@@ -49,6 +49,7 @@ void TextGame::clearLevelEntities() {
     for (auto i : m_ctx.itemsOnGround) delete i;
     m_ctx.monsters.clear(); m_ctx.npcs.clear(); m_ctx.itemsOnGround.clear();
     m_guideHp.clear();                       // 旧层向导的血量记录一并失效
+    m_chestOpened.clear();                   // 旧层宝箱状态一并失效（新层宝箱重新可开）
     delete m_ctx.currentMap; m_ctx.currentMap = nullptr;
 }
 
@@ -446,11 +447,31 @@ void TextGame::renderRoomDesc(std::ostream& out) {
         out << "房间里没有怪物，很安全。\n";
     }
 
-    // 地面物品（宝箱内容）
+    // 地面物品（宝箱房未打开时内容物隐藏，只显示宝箱；打开后才显示地上物品）
     std::vector<Item*> hereI;
     for (Item* it : m_ctx.itemsOnGround)
         if (room.contains(it->getPosition())) hereI.push_back(it);
-    if (!hereI.empty()) {
+    if (room.type == Map::RoomType::Treasure) {
+        int roomIdx = -1;
+        for (size_t i = 0; i < rooms.size(); ++i)
+            if (&rooms[i] == &room) { roomIdx = static_cast<int>(i); break; }
+        bool opened = (roomIdx >= 0) && m_chestOpened.count(roomIdx) && m_chestOpened[roomIdx];
+        if (!opened) {
+            out << "  房间中央放着一只古朴的宝箱。输入「开宝箱」打开它。\n";
+        } else if (!hereI.empty()) {
+            out << "地上有东西：\n";
+            for (Item* it : hereI) {
+                std::string c;
+                if (it->getCategory() == ItemCategory::Gold) c = "金币 ×" + std::to_string(it->getValue());
+                else if (it->getCategory() == ItemCategory::Potion) c = "药水";
+                else if (it->getCategory() == ItemCategory::Weapon) c = "武器";
+                else if (it->getCategory() == ItemCategory::Armor) c = "护甲";
+                else c = it->getName();
+                out << "  · " << c << "\n";
+            }
+            out << "  输入「拾取」捡起来。\n";
+        }
+    } else if (!hereI.empty()) {
         out << "地上有东西：\n";
         for (Item* it : hereI) {
             std::string c;
@@ -461,10 +482,7 @@ void TextGame::renderRoomDesc(std::ostream& out) {
             else c = it->getName();
             out << "  · " << c << "\n";
         }
-        if (room.type == Map::RoomType::Treasure)
-            out << "  这是宝箱房！输入「开宝箱」打开它。\n";
-        else
-            out << "  输入「拾取」捡起来。\n";
+        out << "  输入「拾取」捡起来。\n";
     }
 
     // NPC
@@ -659,6 +677,18 @@ void TextGame::handleCommand(const std::string& line) {
     if (low == "交易" || low == "商店" || low == "买卖" || low == "shop" || low == "trade") { tryTrade(); return; }
     // 拾取
     if (low == "拾取" || low == "捡" || low == "捡起" || low == "pick" || low == "get") { tryPickup(); return; }
+    // 丢弃（丢弃 背包序号 / 丢 序号 / 扔掉 序号 / drop N）
+    if (low.rfind("丢弃", 0) == 0 || low.rfind("丢掉", 0) == 0 || low.rfind("扔掉", 0) == 0
+        || low.rfind("drop", 0) == 0 || low.rfind("丢 ", 0) == 0) {
+        std::string rest;
+        if (low.rfind("丢弃", 0) == 0) rest = argAfter(cmd, "丢弃");
+        else if (low.rfind("丢掉", 0) == 0) rest = argAfter(cmd, "丢掉");
+        else if (low.rfind("扔掉", 0) == 0) rest = argAfter(cmd, "扔掉");
+        else if (low.rfind("drop", 0) == 0) rest = argAfter(cmd, "drop");
+        else rest = argAfter(cmd, "丢 ");
+        tryDropItem(rest);
+        return;
+    }
     // 背包
     if (low == "背包" || low == "物品" || low == "inv" || low == "bag" || low == "i") { showInventory(); return; }
     // 使用
@@ -725,16 +755,36 @@ void TextGame::logRoomDescription(int roomIdx) {
         }
     if (hasMon) appendLog("可输入「攻击 名字」战斗一回合，或「逃跑」离开。");
 
-    // 地面物品
-    for (Item* it : m_ctx.itemsOnGround)
-        if (room.contains(it->getPosition())) {
-            if (it->getCategory() == ItemCategory::Gold)
-                appendLog("地上有金币 ×" + std::to_string(it->getValue()) + "，可「拾取」。");
-            else if (it->getCategory() == ItemCategory::Potion)
-                appendLog("地上有一瓶治疗药水，可「拾取」。");
-            else
-                appendLog("地上有 " + it->getName() + "，可「拾取」。");
+    // 地面物品（宝箱房未打开时内容物隐藏，只提示宝箱）
+    if (room.type == Map::RoomType::Treasure) {
+        int roomIdx2 = -1;
+        for (size_t i = 0; i < rooms.size(); ++i)
+            if (&rooms[i] == &room) { roomIdx2 = static_cast<int>(i); break; }
+        bool opened = (roomIdx2 >= 0) && m_chestOpened.count(roomIdx2) && m_chestOpened[roomIdx2];
+        if (!opened) {
+            appendLog("房间中央放着一只古朴的宝箱，输入「开宝箱」打开它。");
+        } else {
+            for (Item* it : m_ctx.itemsOnGround)
+                if (room.contains(it->getPosition())) {
+                    if (it->getCategory() == ItemCategory::Gold)
+                        appendLog("地上有金币 ×" + std::to_string(it->getValue()) + "，可「拾取」。");
+                    else if (it->getCategory() == ItemCategory::Potion)
+                        appendLog("地上有一瓶治疗药水，可「拾取」。");
+                    else
+                        appendLog("地上有 " + it->getName() + "，可「拾取」。");
+                }
         }
+    } else {
+        for (Item* it : m_ctx.itemsOnGround)
+            if (room.contains(it->getPosition())) {
+                if (it->getCategory() == ItemCategory::Gold)
+                    appendLog("地上有金币 ×" + std::to_string(it->getValue()) + "，可「拾取」。");
+                else if (it->getCategory() == ItemCategory::Potion)
+                    appendLog("地上有一瓶治疗药水，可「拾取」。");
+                else
+                    appendLog("地上有 " + it->getName() + "，可「拾取」。");
+            }
+    }
 
     // NPC
     for (Npc* n : m_ctx.npcs)
@@ -814,15 +864,19 @@ void TextGame::tryAttack(const std::string& target) {
         // —— 击杀魔王：按是否背叛向导判定结局 ——
         if (pick->getMonsterType() == MonsterType::Boss) {
             appendLog(col(C_RED, "【黑渊之眼】倒下了！"));
-            // 魔王宝库照常掉落
+            // 魔王宝库照常掉落；背包满时掉落物真实落在地上
             auto drops = DropSystem::generateDrops(*pick, pick->getPosition(), m_ctx);
+            const Position bossPos = pick->getPosition();
             for (Item* it : drops) {
                 if (it->getCategory() == ItemCategory::Gold) {
                     m_ctx.player->addGold(it->getValue());
                     appendLog("拾取了 金币 ×" + std::to_string(it->getValue()) + "。");
                     delete it;
+                } else if (!m_ctx.player->addItem(it)) {
+                    it->setPosition(bossPos);
+                    m_ctx.addItemOnGround(it);
+                    appendLog("背包已满，「" + it->getName() + "」掉落在了地上。（可「丢弃 序号」腾出空间后拾取）");
                 } else {
-                    m_ctx.player->addItem(it);
                     appendLog("拾取了 " + it->getName() + "。");
                 }
             }
@@ -840,15 +894,19 @@ void TextGame::tryAttack(const std::string& target) {
             }
             return;
         }
-        // —— 普通怪物：掉落并自动拾取 ——
+        // —— 普通怪物：掉落并自动拾取；背包满时掉落物真实落在地上 ——
         auto drops = DropSystem::generateDrops(*pick, pick->getPosition(), m_ctx);
+        const Position dropPos = pick->getPosition();
         for (Item* it : drops) {
             if (it->getCategory() == ItemCategory::Gold) {
                 m_ctx.player->addGold(it->getValue());
                 appendLog("拾取了 金币 ×" + std::to_string(it->getValue()) + "。");
                 delete it;
+            } else if (!m_ctx.player->addItem(it)) {
+                it->setPosition(dropPos);
+                m_ctx.addItemOnGround(it);
+                appendLog("背包已满，「" + it->getName() + "」掉在了地上，可稍后「拾取」。（可「丢弃 序号」腾出空间）");
             } else {
-                m_ctx.player->addItem(it);
                 appendLog("拾取了 " + it->getName() + "。");
             }
         }
@@ -901,20 +959,26 @@ void TextGame::tryAttackGuide(Npc* guide) {
         Item* armor = new Item("向导秘银甲", 'A', ItemCategory::Armor, ItemRarity::Epic);
         armor->setDefenseBonus(3 + m_ctx.currentLevel);
         armor->setValue(100 + m_ctx.currentLevel * 25);
-        if (m_ctx.player->getInventorySize() + 2 <= 20) {
-            m_ctx.player->addItem(sword);
-            m_ctx.player->addItem(armor);
+        const Position guidePos = guide->getPosition();
+        // 背包容量足够：两件都收入背包；不足则按顺序放地上（不消失，可稍后拾取）
+        bool gotSword = m_ctx.player->addItem(sword);
+        if (!gotSword) {
+            sword->setPosition(guidePos);
+            m_ctx.addItemOnGround(sword);
+            appendLog("背包已满，「向导秘宝剑」落在了地上，可稍后「拾取」。（可「丢弃 序号」腾出空间）");
+        }
+        bool gotArmor = m_ctx.player->addItem(armor);
+        if (!gotArmor) {
+            armor->setPosition(guidePos);
+            m_ctx.addItemOnGround(armor);
+            appendLog("背包已满，「向导秘银甲」落在了地上，可稍后「拾取」。（可「丢弃 序号」腾出空间）");
+        }
+        if (gotSword && gotArmor) {
             appendLog(col(C_ORANGE, "获得强力装备：" + sword->getFullDescription()
                       + " 与 " + armor->getFullDescription()));
-        } else if (m_ctx.player->getInventorySize() < 20) {
-            m_ctx.player->addItem(sword);
-            appendLog(col(C_ORANGE, "获得强力装备：" + sword->getFullDescription()));
-            delete armor;
-            appendLog("背包已满，「向导秘银甲」掉在了地上。（可先到商店卖掉旧装备）");
-        } else {
-            delete sword;
-            delete armor;
-            appendLog("背包已满，强力装备散落一地……（可先到商店卖掉旧装备）");
+        } else if (gotSword || gotArmor) {
+            std::string got = gotSword ? sword->getFullDescription() : armor->getFullDescription();
+            appendLog(col(C_ORANGE, "获得强力装备：" + got + "。"));
         }
         m_ctx.removeNpc(guide);
         m_guideHp.erase(guide);
@@ -968,21 +1032,40 @@ void TextGame::tryOpenTreasure() {
         appendLog("这不是宝箱房，没有宝箱可开。");
         return;
     }
+    // 定位当前房间下标（宝箱状态按房间下标记录）
+    int roomIdx = -1;
+    const auto& rooms = m_ctx.currentMap->getRooms();
+    for (size_t i = 0; i < rooms.size(); ++i)
+        if (&rooms[i] == &room) { roomIdx = static_cast<int>(i); break; }
+    if (m_chestOpened.count(roomIdx) && m_chestOpened[roomIdx]) {
+        appendLog("宝箱已经被打开过了，空空如也。");
+        return;
+    }
     std::vector<Item*> here;
     for (Item* it : m_ctx.itemsOnGround)
         if (room.contains(it->getPosition())) here.push_back(it);
-    if (here.empty()) { appendLog("宝箱已经被打开过了，空空如也。"); return; }
+    if (here.empty()) {
+        m_chestOpened[roomIdx] = true;
+        appendLog("宝箱空空如也。");
+        return;
+    }
     for (Item* it : here) {
-        m_ctx.removeItemOnGround(it);
         if (it->getCategory() == ItemCategory::Gold) {
+            m_ctx.removeItemOnGround(it);
             m_ctx.player->addGold(it->getValue());
             appendLog("打开宝箱！获得 金币 ×" + std::to_string(it->getValue()) + "。");
             delete it;
         } else {
-            m_ctx.player->addItem(it);
+            // 背包已满：物品落在宝箱房里，不消失（可稍后「拾取」）
+            if (!m_ctx.player->addItem(it)) {
+                appendLog("背包已满，「" + it->getName() + "」从宝箱里滑落在地，可稍后「拾取」。（可「丢弃 序号」腾出空间）");
+                continue;
+            }
+            m_ctx.removeItemOnGround(it);
             appendLog("打开宝箱！获得 " + it->getName() + "。");
         }
     }
+    m_chestOpened[roomIdx] = true;
     appendLog("宝箱空了。");
 }
 
@@ -1031,16 +1114,36 @@ void TextGame::tryPickup() {
         if (room.contains(it->getPosition())) here.push_back(it);
     if (here.empty()) { appendLog("脚下没有可以拾取的东西。"); return; }
     for (Item* it : here) {
-        m_ctx.removeItemOnGround(it);
         if (it->getCategory() == ItemCategory::Gold) {
+            m_ctx.removeItemOnGround(it);
             m_ctx.player->addGold(it->getValue());
             appendLog("拾取了 金币 ×" + std::to_string(it->getValue()) + "。");
             delete it;
         } else {
-            m_ctx.player->addItem(it);
+            // 背包已满：物品保持留在地上，不吞掉（可先去商店出售或「丢弃 N」腾出空间）
+            if (!m_ctx.player->addItem(it)) {
+                appendLog("背包已满，无法拾取 " + it->getName() + "。（可输入「丢弃 序号」腾出空间，或到商店出售）");
+                continue;
+            }
+            m_ctx.removeItemOnGround(it);
             appendLog("拾取了 " + it->getName() + "。");
         }
     }
+}
+
+void TextGame::tryDropItem(const std::string& arg) {
+    if (arg.empty()) { appendLog("用法：丢弃 背包序号（如「丢弃 3」）；输入「背包」查看序号。"); return; }
+    int idx = atoi(arg.c_str());
+    auto& inv = m_ctx.player->getInventory();
+    if (idx < 1 || idx > static_cast<int>(inv.size())) { appendLog("没有这个背包序号。"); return; }
+    Item* it = inv[idx - 1];
+    // 正在穿戴的装备：先自动卸下再丢弃，避免攻击/防御加成残留
+    if (it == m_ctx.player->getWeapon()) { m_ctx.player->unequipWeapon(); appendLog("卸下了装备中的武器。"); }
+    if (it == m_ctx.player->getArmor())  { m_ctx.player->unequipArmor();  appendLog("卸下了装备中的护甲。"); }
+    m_ctx.player->removeItem(it);
+    it->setPosition(curRoom().getCenter());
+    m_ctx.addItemOnGround(it);
+    appendLog("丢下了 " + it->getName() + "，掉在当前房间地上。（可「拾取」捡回）");
 }
 
 void TextGame::showInventory() {
@@ -1125,6 +1228,7 @@ void TextGame::printHelp() {
     appendLog("对话           —— 与向导/商人对话（剧情）");
     appendLog("交易           —— 在商店房买卖装备（买 N / 卖 N / 离开）");
     appendLog("拾取           —— 捡起地上的物品");
+    appendLog("丢弃 序号      —— 把背包里的物品丢到当前房间地上（腾出空间）");
     appendLog("背包           —— 查看背包（使用 序号）");
     appendLog("下楼           —— 在楼梯房前往下一层");
     appendLog("等待           —— 原地等待一回合");
@@ -1214,6 +1318,13 @@ void TextGame::saveGame() {
     for (Item* it : m_ctx.itemsOnGround) {
         const Position& ip = it->getPosition();
         f << "ground=" << saveItemLine(*it) << "|" << ip.x << "|" << ip.y << "\n";
+    }
+    // 宝箱打开状态（已打开的宝箱房下标列表，防止读档后重复开箱刷宝）
+    {
+        std::string chests;
+        for (const auto& kv : m_chestOpened)
+            if (kv.second) { if (!chests.empty()) chests += " "; chests += std::to_string(kv.first); }
+        f << "chest_open=" << chests << "\n";
     }
     // 商店（交易界面时保留货架）
     const auto& shopItems = m_ctx.currentShop->getItems();
@@ -1329,6 +1440,15 @@ void TextGame::loadGame() {
         Item* it = makeItemFromLine(itemPart);
         it->setPosition(Position(atoi(t[9].c_str()), atoi(t[10].c_str())));
         m_ctx.addItemOnGround(it);
+    }
+    // 宝箱打开状态（旧存档无此字段 → 全部未打开，与旧版行为一致）
+    m_chestOpened.clear();
+    if (kv.count("chest_open")) {
+        auto toks = splitStr(kv["chest_open"], ' ');
+        for (const auto& tk : toks) {
+            int ci = atoi(tk.c_str());
+            if (ci >= 0) m_chestOpened[ci] = true;
+        }
     }
     // 商店货架
     std::vector<ShopItem> shopItems;

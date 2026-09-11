@@ -10,7 +10,7 @@ namespace dq {
 // 不使用二维平面地图，改用命令式文字交互：
 //   - 每次显示：当前层小地图（房间拓扑）+ 当前房间文字描述 + 信息 + 状态
 //   - 指令：去 东/西/南/北 | 攻击 [怪物] | 逃跑 | 开宝箱 | 对话 | 交易
-//           拾取 | 背包 | 使用 N | 下楼 | 等待 | 查看 | 帮助 | 退出
+//           拾取 | 丢弃 N | 背包 | 使用 N | 下楼 | 等待 | 查看 | 帮助 | 退出
 // 二维渲染代码（Renderer / InputManager）不参与本模式编译，
 // 因此“用不到的二维地图代码”在本版本中整体不链接。
 // ============================================================
@@ -29,6 +29,7 @@ private:
     bool m_attackedGuide = false; // 是否攻击过任意向导：此后全部向导都会咒骂拒绝对话
     std::vector<std::string> m_log;        // 信息日志（保留最近若干条）
     std::map<Npc*, int> m_guideHp;         // 向导剩余血量（攻击向导特性用）
+    std::map<int, bool> m_chestOpened;     // 宝箱房（房间下标）是否已打开：未开时内容物隐藏，输入「开宝箱」才揭晓
 
     // 游戏流程
     void newGame();
@@ -64,6 +65,7 @@ private:
     void tryTalk();
     void tryTrade();
     void tryPickup();
+    void tryDropItem(const std::string& arg);   // 丢弃背包物品到当前房间地面
     void showInventory();
     void tryUseItem(const std::string& arg);
     void tryDownStairs();
