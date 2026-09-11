@@ -74,4 +74,6 @@ src/
 ## 文档
 
 - [技术文档.md](技术文档.md)：C++ 程序设计实验技术文档 v2.4（架构设计、核心类、命令系统、装备显示、存档/读档、端到端测试记录、答辩常见问题）
+- [docs/斗地组_实验报告.docx](docs/斗地组_实验报告.docx)：实验报告 v3（含完整 15 条 Git 提交记录、UML 类图/流程图、第十一章成绩要求、附录命令速查表）
+- [docs/斗地组_课堂展示PPT.pptx](docs/斗地组_课堂展示PPT.pptx)：课堂展示 PPT（10 页，中英双语命令、16 项测试、GitHub 仓库）
 - 代码仓库：<https://github.com/BugMaker-orz/Code-class-MUD-game>
