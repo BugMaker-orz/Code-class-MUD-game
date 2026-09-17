@@ -69,14 +69,13 @@ CombatResult CombatSystem::monsterAttackPlayer(Monster& monster, Player& player,
     }
     return result;
 }
-// 怪物死亡结算：发经验/金币、按掉落表生成物品落到地面、从场景移除
+// 怪物死亡结算：发基础经验与金币、从场景移除。
+// 注意：掉落物（武器/护甲/消耗品）由 TextGame::tryAttack 在击杀后统一调用一次
+// DropSystem::generateDrops 并做自动拾取/背包满落地处理。这里不再生成掉落，
+// 否则一次击杀会触发两轮独立的掉落判定（M-03 修复）。
 void CombatSystem::handleMonsterDeath(Monster& monster, Player& player, GameContext& context) {
     player.gainExp(monster.getExpReward());
     player.addGold(monster.getGoldReward());
-    auto drops = DropSystem::generateDrops(monster, monster.getPosition(), context);
-    for (auto item : drops) {
-        context.addItemOnGround(item);
-    }
     // 仅从列表移除，不 delete；对象所有权归 GameContext::cleanup()
     context.removeMonster(&monster);
 }

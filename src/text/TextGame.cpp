@@ -720,11 +720,14 @@ void TextGame::tryMove(const std::string& dir) {
     const auto& rooms = m_ctx.currentMap->getRooms();
     const Map::Room& cr = curRoom();
     int tx = cr.gridX, ty = cr.gridY;
-    if (dir == "东") tx++;
-    else if (dir == "西") tx--;
-    else if (dir == "南") ty++;
-    else if (dir == "北") ty--;
-    else { appendLog("方向无效（东/西/南/北）。"); return; }
+    // 统一小写后识别中英文方向：东/east、西/west、南/south、北/north
+    std::string d = dir;
+    for (auto& c : d) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+    if (d == "东" || d == "east" || d == "e") tx++;
+    else if (d == "西" || d == "west" || d == "w") tx--;
+    else if (d == "南" || d == "south" || d == "s") ty++;
+    else if (d == "北" || d == "north" || d == "n") ty--;
+    else { appendLog("方向无效（东/east、西/west、南/south、北/north）。"); return; }
 
     int target = -1;
     for (int oi : cr.connectedRooms) {
@@ -839,13 +842,19 @@ void TextGame::showHistory() {
 
 void TextGame::tryAttack(const std::string& target) {
     const Map::Room& room = curRoom();
+    // 统一转小写，便于匹配英文怪物名（slime/goblin/...）
+    std::string tgtLow = target;
+    for (auto& c : tgtLow) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
     // 1) 先匹配怪物（空参数优先打房间内第一只活怪）
     Monster* pick = nullptr;
     for (Monster* m : m_ctx.monsters) {
         if (!m->isAlive() || !room.contains(m->getPosition())) continue;
         if (target.empty()) { pick = m; break; }
+        std::string en = monToStr(m->getMonsterType());
+        for (auto& c : en) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
         if (monsterChineseName(m->getMonsterType()) == target ||
-            m->getName() == target) { pick = m; break; }
+            m->getName() == target ||
+            en == tgtLow) { pick = m; break; }
     }
     if (pick) {
         // —— 与怪物战斗一回合（玩家先手）——
@@ -864,7 +873,7 @@ void TextGame::tryAttack(const std::string& target) {
         // —— 击杀魔王：按是否背叛向导判定结局 ——
         if (pick->getMonsterType() == MonsterType::Boss) {
             appendLog(col(C_RED, "【黑渊之眼】倒下了！"));
-            // 魔王宝库照常掉落；背包满时掉落物真实落在地上
+            // 魔王宝库掉落（唯一一次掉落判定；handleMonsterDeath 已发基础经验与金币）
             auto drops = DropSystem::generateDrops(*pick, pick->getPosition(), m_ctx);
             const Position bossPos = pick->getPosition();
             for (Item* it : drops) {
@@ -895,6 +904,8 @@ void TextGame::tryAttack(const std::string& target) {
             return;
         }
         // —— 普通怪物：掉落并自动拾取；背包满时掉落物真实落在地上 ——
+        // （M-03 修复：仅在此处调用一次 generateDrops；经验与基础金币已由
+        //  CombatSystem::handleMonsterDeath 结算，不再重复）
         auto drops = DropSystem::generateDrops(*pick, pick->getPosition(), m_ctx);
         const Position dropPos = pick->getPosition();
         for (Item* it : drops) {
@@ -923,8 +934,13 @@ void TextGame::tryAttack(const std::string& target) {
         appendLog(target.empty() ? "房间里没有怪物或向导可攻击。" : "房间里没有叫「" + target + "」的怪物或向导。");
         return;
     }
-    // 目标名匹配向导（支持「向导」/ 向导全名 / 名字片段）
-    if (!target.empty() && target != "向导" && target != "npc" &&
+    // 目标名匹配向导（支持「向导」/「npc」/ 英文 guide/wizard/sage / 向导全名 / 名字片段）
+    std::string tgtLow2 = target;
+    for (auto& c : tgtLow2) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+    bool guideAlias = (tgtLow2 == "guide" || tgtLow2 == "wizard" ||
+                       tgtLow2 == "sage" || tgtLow2 == "oldman" ||
+                       tgtLow2 == "npc");
+    if (!target.empty() && target != "向导" && !guideAlias &&
         guide->getName().find(target) == std::string::npos) {
         appendLog("房间里没有叫「" + target + "」的怪物或向导。");
         return;
@@ -1358,6 +1374,18 @@ void TextGame::loadGame() {
         if (eq != std::string::npos) kv[line.substr(0, eq)] = line.substr(eq + 1);
     }
     if (version.empty()) { appendLog("存档文件格式无效，无法读取。"); return; }
+    // M-04：校验存档是否包含玩家必填字段，缺字段直接拒绝读档，
+    //       不再用默认值静默重建（防止损坏/半截存档被当成正常进度）
+    static const char* kRequired[] = {
+        "level", "p_level", "p_exp", "p_maxhp", "p_hp",
+        "p_baseAtk", "p_baseDef", "p_gold", "room"
+    };
+    for (const char* k : kRequired) {
+        if (kv.find(k) == kv.end()) {
+            appendLog("存档数据不完整（缺少字段 " + std::string(k) + "），已拒绝读取。存档可能已损坏。");
+            return;
+        }
+    }
     auto val = [&](const std::string& k, int def) -> int {
         auto it = kv.find(k);
         return (it == kv.end()) ? def : atoi(it->second.c_str());
